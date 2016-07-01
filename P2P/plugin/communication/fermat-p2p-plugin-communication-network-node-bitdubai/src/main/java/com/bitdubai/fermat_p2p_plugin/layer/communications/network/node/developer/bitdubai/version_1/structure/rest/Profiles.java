@@ -2,21 +2,28 @@ package com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.develop
 
 import com.bitdubai.fermat_api.layer.all_definition.exceptions.InvalidParameterException;
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.data.DiscoveryQueryParameters;
+import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.enums.ProfileStatus;
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.profiles.ActorProfile;
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.util.GsonProvider;
+import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.developer.bitdubai.version_1.NetworkNodePluginRoot;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.developer.bitdubai.version_1.structure.context.NodeContext;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.developer.bitdubai.version_1.structure.context.NodeContextItem;
-import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.developer.bitdubai.version_1.structure.database.CommunicationsNetworkNodeP2PDatabaseConstants;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.developer.bitdubai.version_1.structure.database.daos.DaoFactory;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.developer.bitdubai.version_1.structure.entities.ActorsCatalog;
+import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.developer.bitdubai.version_1.structure.entities.NodesCatalog;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.developer.bitdubai.version_1.structure.exceptions.CantReadRecordDataBaseException;
-import com.google.gson.Gson;
+import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.developer.bitdubai.version_1.structure.exceptions.RecordNotFoundException;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
 
 import org.apache.commons.lang.ClassUtils;
 import org.jboss.logging.Logger;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -51,17 +58,7 @@ public class Profiles implements RestFulServices {
      */
     private DaoFactory daoFactory;
 
-    /**
-     * Represent the gson
-     */
-    private Gson gson;
-
-    /**
-     * Constructor
-     */
-    public Profiles(){
-
-    }
+    private NetworkNodePluginRoot pluginRoot;
 
     @POST
     @Path("/actors")
@@ -79,8 +76,8 @@ public class Profiles implements RestFulServices {
              */
             DiscoveryQueryParameters discoveryQueryParameters = DiscoveryQueryParameters.parseContent(discoveryParam);
 
-            LOG.debug("clientIdentityPublicKey  = " + clientIdentityPublicKey);
-            LOG.debug("discoveryQueryParameters = " + discoveryQueryParameters.toJson());
+            LOG.info("clientIdentityPublicKey  = " + clientIdentityPublicKey);
+            LOG.info("discoveryQueryParameters = " + discoveryQueryParameters.toJson());
 
             /*
              * hold the result list
@@ -92,8 +89,10 @@ public class Profiles implements RestFulServices {
             /*
              * Convert the list to json representation
              */
-            String jsonListRepresentation = getGson().toJson(resultList, new TypeToken<List<ActorProfile>>() {
+            String jsonListRepresentation = GsonProvider.getGson().toJson(resultList, new TypeToken<List<ActorProfile>>() {
             }.getType());
+
+            System.out.println(jsonListRepresentation);
 
             /*
              * Create the respond
@@ -101,14 +100,14 @@ public class Profiles implements RestFulServices {
             jsonObjectRespond.addProperty("data", jsonListRepresentation);
 
 
-        }catch (Exception e){
+        } catch (Exception e){
 
             LOG.warn("requested list is not available");
             jsonObjectRespond.addProperty("failure", "Requested list is not available");
             e.printStackTrace();
         }
 
-        String jsonString = getGson().toJson(jsonObjectRespond);
+        String jsonString = GsonProvider.getGson().toJson(jsonObjectRespond);
 
         LOG.debug("jsonString.length() = " + jsonString.length());
 
@@ -117,87 +116,193 @@ public class Profiles implements RestFulServices {
     }
 
     /**
-     * Filter all network service from data base that mach
-     * with the parameters
+     * Filter all actor component profiles from database that match with the given parameters.
+     * We'll use the @clientIdentityPublicKey param to filter the actors who belongs to the client asking.
      *
-     * @param discoveryQueryParameters
-     * @return List<ActorProfile>
+     * @param discoveryQueryParameters parameters of the discovery done by the user.
+     *
+     * @return a list of actor profiles.
      */
-    private List<ActorProfile> filterActors(DiscoveryQueryParameters discoveryQueryParameters, String clientIdentityPublicKey) throws CantReadRecordDataBaseException, InvalidParameterException {
+    private List<ActorProfile> filterActors(final DiscoveryQueryParameters discoveryQueryParameters,
+                                            final String                   clientIdentityPublicKey ) throws CantReadRecordDataBaseException, InvalidParameterException {
 
-        List<ActorProfile> profileList = new ArrayList<>();
+        Map<String, ActorProfile> profileList = new HashMap<>();
 
-        Map<String, Object> filters = constructFiltersActorTable(discoveryQueryParameters);
-        List<ActorsCatalog> actors = getDaoFactory().getActorsCatalogDao().findAll(filters);
+        List<ActorsCatalog> actorsList;
 
-        for (ActorsCatalog actorsCatalog : actors) {
+        int max    = 10;
+        int offset =  0;
 
-            if (clientIdentityPublicKey == null || actorsCatalog.getClientIdentityPublicKey() == null || !actorsCatalog.getClientIdentityPublicKey().equals(clientIdentityPublicKey)) {
-                ActorProfile actorProfile = new ActorProfile();
-                actorProfile.setIdentityPublicKey(actorsCatalog.getIdentityPublicKey());
-                actorProfile.setAlias(actorsCatalog.getAlias());
-                actorProfile.setName(actorsCatalog.getName());
-                actorProfile.setActorType(actorsCatalog.getActorType());
-                actorProfile.setPhoto(actorsCatalog.getPhoto());
-                actorProfile.setExtraData(actorsCatalog.getExtraData());
-                actorProfile.setLocation(actorsCatalog.getLastLocation());
+        if (discoveryQueryParameters.getMax() != null && discoveryQueryParameters.getMax() > 0)
+            max = (discoveryQueryParameters.getMax() > 100) ? 100 : discoveryQueryParameters.getMax();
 
-                profileList.add(actorProfile);
-            }
-        }
+        if (discoveryQueryParameters.getOffset() != null && discoveryQueryParameters.getOffset() >= 0)
+            offset = discoveryQueryParameters.getOffset();
 
-        return profileList;
+        actorsList = getDaoFactory().getActorsCatalogDao().findAll(discoveryQueryParameters, clientIdentityPublicKey, max, offset);
+
+        if (discoveryQueryParameters.isOnline())
+            for (ActorsCatalog actorsCatalog : actorsList)
+             profileList.put(actorsCatalog.getIdentityPublicKey(), buildActorProfileFromActorCatalogRecordAndSetStatus(actorsCatalog));
+        else
+            for (ActorsCatalog actorsCatalog : actorsList)
+                profileList.put(actorsCatalog.getIdentityPublicKey(), buildActorProfileFromActorCatalogRecord(actorsCatalog));
+
+        return new ArrayList<>(profileList.values());
     }
 
     /**
-     * Construct data base filter from discovery query parameters
-     *
-     * @param discoveryQueryParameters
-     * @return Map<String, Object> filters
+     * Build an Actor Profile from an Actor Catalog record.
      */
-    private Map<String, Object> constructFiltersActorTable(DiscoveryQueryParameters discoveryQueryParameters){
+    private ActorProfile buildActorProfileFromActorCatalogRecord(final ActorsCatalog actor){
 
-        Map<String, Object> filters = new HashMap<>();
+        ActorProfile actorProfile = new ActorProfile();
 
-        if (discoveryQueryParameters.getIdentityPublicKey() != null){
-            filters.put(CommunicationsNetworkNodeP2PDatabaseConstants.CHECKED_IN_ACTOR_IDENTITY_PUBLIC_KEY_COLUMN_NAME, discoveryQueryParameters.getIdentityPublicKey());
-        }
+        actorProfile.setIdentityPublicKey(actor.getIdentityPublicKey());
+        actorProfile.setAlias            (actor.getAlias());
+        actorProfile.setName             (actor.getName());
+        actorProfile.setActorType        (actor.getActorType());
+        actorProfile.setPhoto            (actor.getPhoto());
+        actorProfile.setExtraData        (actor.getExtraData());
+        actorProfile.setLocation         (actor.getLastLocation());
 
-        if (discoveryQueryParameters.getName() != null){
-            filters.put(CommunicationsNetworkNodeP2PDatabaseConstants.CHECKED_IN_ACTOR_NAME_COLUMN_NAME, discoveryQueryParameters.getName());
-        }
-
-        if (discoveryQueryParameters.getAlias() != null){
-            filters.put(CommunicationsNetworkNodeP2PDatabaseConstants.CHECKED_IN_ACTOR_ALIAS_COLUMN_NAME, discoveryQueryParameters.getAlias());
-        }
-
-        if (discoveryQueryParameters.getActorType() != null){
-            filters.put(CommunicationsNetworkNodeP2PDatabaseConstants.CHECKED_IN_ACTOR_ACTOR_TYPE_COLUMN_NAME, discoveryQueryParameters.getActorType());
-        }
-
-        if (discoveryQueryParameters.getExtraData() != null){
-            filters.put(CommunicationsNetworkNodeP2PDatabaseConstants.CHECKED_IN_ACTOR_EXTRA_DATA_COLUMN_NAME, discoveryQueryParameters.getExtraData());
-        }
-
-        return filters;
+        return actorProfile;
     }
 
+    /**
+     * Build an Actor Profile from an Actor Catalog record and set its status.
+     */
+    private ActorProfile buildActorProfileFromActorCatalogRecordAndSetStatus(final ActorsCatalog actor){
+
+        ActorProfile actorProfile = new ActorProfile();
+
+        actorProfile.setIdentityPublicKey(actor.getIdentityPublicKey());
+        actorProfile.setAlias            (actor.getAlias());
+        actorProfile.setName             (actor.getName());
+        actorProfile.setActorType        (actor.getActorType());
+        actorProfile.setPhoto            (actor.getPhoto());
+        actorProfile.setExtraData        (actor.getExtraData());
+        actorProfile.setLocation         (actor.getLastLocation());
+
+        actorProfile.setStatus           (isActorOnline(actor));
+
+        return actorProfile;
+    }
+
+    /**
+     * Through this method we're going to determine a status for the actor profile.
+     * First we'll check if the actor belongs to this node:
+     *   if it belongs we'll check directly if he is online in the check-ins table
+     *   if not we'll call to the other node.
+     *
+     * @param actorsCatalog  the record of the profile from the actors catalog table.
+     *
+     * @return an element of the ProfileStatus enum.
+     */
+    private ProfileStatus isActorOnline(ActorsCatalog actorsCatalog) {
+
+        try {
+
+            if(actorsCatalog.getNodeIdentityPublicKey().equals(getPluginRoot().getIdentity().getPublicKey())) {
+
+                if (getDaoFactory().getCheckedInActorDao().exists(actorsCatalog.getIdentityPublicKey()))
+                    return ProfileStatus.ONLINE;
+                else
+                    return ProfileStatus.OFFLINE;
+
+            } else {
+
+                return isActorOnlineInOtherNode(actorsCatalog);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ProfileStatus.UNKNOWN;
+        }
+    }
+
+    /**
+     * Through this method we're going to determine a status for the actor profile calling another node.
+     *
+     * @param actorsCatalog  the record of the profile from the actors catalog table.
+     *
+     * @return an element of the ProfileStatus enum.
+     */
+    private ProfileStatus isActorOnlineInOtherNode(final ActorsCatalog actorsCatalog) {
+
+        try {
+
+            String nodeUrl = getNodeUrl(actorsCatalog.getNodeIdentityPublicKey());
+
+            URL url = new URL("http://" + nodeUrl + "/fermat/rest/api/v1/online/component/actor/" + actorsCatalog.getIdentityPublicKey());
+
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/json");
+
+            BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+            String respond = reader.readLine();
+
+            if (conn.getResponseCode() == 200 && respond != null && respond.contains("success")) {
+                JsonParser parser = new JsonParser();
+                JsonObject respondJsonObject = (JsonObject) parser.parse(respond.trim());
+
+                return respondJsonObject.get("isOnline").getAsBoolean() ? ProfileStatus.ONLINE : ProfileStatus.OFFLINE;
+
+            } else {
+                return ProfileStatus.UNKNOWN;
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ProfileStatus.UNKNOWN;
+        }
+    }
+
+    /**
+     * Through this method we'll get the node url having in count its node catalog record.
+     *
+     * @param publicKey  of the node.
+     *
+     * @return node's url string.
+     */
+    private String getNodeUrl(final String publicKey) {
+
+        try {
+
+            NodesCatalog nodesCatalog = getDaoFactory().getNodesCatalogDao().findById(publicKey);
+            return nodesCatalog.getIp()+":"+nodesCatalog.getDefaultPort();
+
+        } catch (RecordNotFoundException exception) {
+            throw new RuntimeException("Node not found in catalog: "+exception.getMessage());
+        } catch (Exception exception) {
+            throw new RuntimeException("Problem trying to find the node in the catalog: "+exception.getMessage());
+        }
+    }
+
+    /**
+     * Through this method we'll get the dao factory.
+     *
+     * @return a dao factory object.
+     */
     private DaoFactory getDaoFactory() {
 
         if (daoFactory == null)
             daoFactory = (DaoFactory) NodeContext.get(NodeContextItem.DAO_FACTORY);
 
         return daoFactory;
-
     }
 
-    private Gson getGson() {
+    /**
+     * Through this method we'll get the plugin root.
+     *
+     * @return a plugin root object.
+     */
+    private NetworkNodePluginRoot getPluginRoot() {
 
-        if (gson == null)
-            gson = GsonProvider.getGson();
+        if (pluginRoot == null)
+            pluginRoot = (NetworkNodePluginRoot) NodeContext.get(NodeContextItem.PLUGIN_ROOT);
 
-        return gson;
-
+        return pluginRoot;
     }
 
 }

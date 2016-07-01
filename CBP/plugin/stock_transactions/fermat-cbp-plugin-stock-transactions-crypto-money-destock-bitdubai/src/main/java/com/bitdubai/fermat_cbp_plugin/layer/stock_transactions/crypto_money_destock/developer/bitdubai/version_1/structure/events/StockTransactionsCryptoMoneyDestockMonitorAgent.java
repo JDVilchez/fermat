@@ -5,7 +5,6 @@ import com.bitdubai.fermat_api.CantStopAgentException;
 import com.bitdubai.fermat_api.FermatAgent;
 import com.bitdubai.fermat_api.FermatException;
 import com.bitdubai.fermat_api.layer.all_definition.enums.BlockchainNetworkType;
-import com.bitdubai.fermat_api.layer.all_definition.enums.Plugins;
 import com.bitdubai.fermat_api.layer.osa_android.database_system.PluginDatabaseSystem;
 import com.bitdubai.fermat_cbp_api.all_definition.business_transaction.CryptoMoneyTransaction;
 import com.bitdubai.fermat_cbp_api.all_definition.enums.BalanceType;
@@ -25,7 +24,6 @@ import com.bitdubai.fermat_ccp_api.layer.crypto_transaction.hold.interfaces.Cryp
 import com.bitdubai.fermat_api.layer.all_definition.common.system.interfaces.error_manager.enums.UnexpectedPluginExceptionSeverity;
 
 import java.util.Date;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -226,17 +224,17 @@ public class StockTransactionsCryptoMoneyDestockMonitorAgent extends FermatAgent
                                 BlockchainNetworkType.getDefaultBlockchainNetworkType()); //TODO: Debe ser persitido en la base de datos de Stock/Restock
 
                         cryptoHoldTransactionManager.createCryptoHoldTransaction(cryptoTransactionParametersWrapper);
-                        cryptoMoneyTransaction.setTransactionStatus(TransactionStatusRestockDestock.IN_EJECUTION);
+                        cryptoMoneyTransaction.setTransactionStatus(TransactionStatusRestockDestock.IN_EXECUTION);
                         stockTransactionCryptoMoneyDestockFactory.saveCryptoMoneyDestockTransactionData(cryptoMoneyTransaction);
                         break;
-                    case IN_EJECUTION:
+                    case IN_EXECUTION:
                         CryptoTransactionStatus cryptoTransactionStatus = cryptoHoldTransactionManager.getCryptoHoldTransactionStatus(cryptoMoneyTransaction.getTransactionId());
                         if (cryptoTransactionStatus != null) {
-                            if (Objects.equals(CryptoTransactionStatus.CONFIRMED.getCode(), cryptoTransactionStatus.getCode())) {
+                            if (cryptoTransactionStatus.getCode().equals(CryptoTransactionStatus.CONFIRMED.getCode())) {
                                 cryptoMoneyTransaction.setTransactionStatus(TransactionStatusRestockDestock.COMPLETED);
                                 stockTransactionCryptoMoneyDestockFactory.saveCryptoMoneyDestockTransactionData(cryptoMoneyTransaction);
                             }
-                            if (Objects.equals(CryptoTransactionStatus.REJECTED.getCode(), cryptoTransactionStatus.getCode())) {
+                            if (cryptoTransactionStatus.getCode().equals(CryptoTransactionStatus.REJECTED.getCode())) {
                                 cryptoMoneyTransaction.setTransactionStatus(TransactionStatusRestockDestock.REJECTED);
                                 stockTransactionCryptoMoneyDestockFactory.saveCryptoMoneyDestockTransactionData(cryptoMoneyTransaction);
                             }

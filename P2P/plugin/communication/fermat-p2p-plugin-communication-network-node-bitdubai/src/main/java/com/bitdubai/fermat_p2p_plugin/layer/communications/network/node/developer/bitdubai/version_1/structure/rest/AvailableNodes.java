@@ -19,7 +19,6 @@ import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.develope
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.node.developer.bitdubai.version_1.structure.entities.NodesCatalog;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.gson.reflect.TypeToken;
 
 import org.apache.commons.lang.ClassUtils;
 import org.jboss.logging.Logger;
@@ -115,7 +114,9 @@ public class AvailableNodes implements RestFulServices {
 
                 List<NodeProfile> listNodeProfile = new ArrayList<>();
 
-                for (NodesCatalog nodesCatalog : nodesCatalogsFiltered.subList(0,5)) {
+                nodesCatalogsFiltered = (nodesCatalogsFiltered.size() > 10 ) ? nodesCatalogsFiltered.subList(0,5) : nodesCatalogsFiltered;
+
+                for (NodesCatalog nodesCatalog : nodesCatalogsFiltered) {
 
                     NodeProfile nodeProfile = new NodeProfile();
                     nodeProfile.setName((nodesCatalog.getName() != null ? nodesCatalog.getName() : null));

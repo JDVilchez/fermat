@@ -38,7 +38,14 @@ public class JaxRsActivator extends Application {
             DeveloperDatabaseResource.class,
             HelloResource.class,
             OnlineComponents.class,
-            Profiles.class
+            Profiles.class,
+            Nodes.class,
+            NetworkData.class,
+            Monitoring.class,
+            UserAuth.class,
+            ConfigurationService.class,
+            Databases.class,
+            Actors.class
     );
 
     @Override

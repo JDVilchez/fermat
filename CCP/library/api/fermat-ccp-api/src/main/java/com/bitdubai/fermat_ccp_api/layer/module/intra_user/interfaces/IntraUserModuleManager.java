@@ -6,6 +6,7 @@ import com.bitdubai.fermat_api.layer.core.MethodDetail;
 import com.bitdubai.fermat_api.layer.modules.ModuleSettingsImpl;
 import com.bitdubai.fermat_api.layer.modules.common_classes.ActiveActorIdentityInformation;
 import com.bitdubai.fermat_api.layer.modules.interfaces.ModuleManager;
+import com.bitdubai.fermat_ccp_api.all_definition.enums.Frecuency;
 import com.bitdubai.fermat_ccp_api.layer.actor.intra_user.exceptions.CantCreateNewDeveloperException;
 import com.bitdubai.fermat_ccp_api.layer.actor.intra_user.interfaces.IntraUserWalletSettings;
 import com.bitdubai.fermat_ccp_api.layer.actor.intra_user.interfaces.IntraWalletUserActor;
@@ -68,8 +69,8 @@ public interface IntraUserModuleManager extends ModuleManager<IntraUserWalletSet
      * @return a list with information of intra users
      * @throws com.bitdubai.fermat_ccp_api.layer.module.intra_user.exceptions.CantGetIntraUsersListException
      */
-    @MethodDetail(looType = MethodDetail.LoopType.BACKGROUND, timeout = 10,timeoutUnit = TimeUnit.SECONDS)
-     List<IntraUserInformation> getSuggestionsToContact(int max,int offset) throws com.bitdubai.fermat_ccp_api.layer.module.intra_user.exceptions.CantGetIntraUsersListException;
+    @MethodDetail(looType = MethodDetail.LoopType.BACKGROUND,timeout = 30,timeoutUnit = TimeUnit.SECONDS)
+    List<IntraUserInformation> getSuggestionsToContact(int max,int offset) throws com.bitdubai.fermat_ccp_api.layer.module.intra_user.exceptions.CantGetIntraUsersListException;
 
 
     /**
@@ -79,7 +80,8 @@ public interface IntraUserModuleManager extends ModuleManager<IntraUserWalletSet
      * @return a list with information of intra users
      * @throws com.bitdubai.fermat_ccp_api.layer.module.intra_user.exceptions.CantGetIntraUsersListException
      */
-    @MethodDetail(looType = MethodDetail.LoopType.BACKGROUND, timeout = 30,timeoutUnit = TimeUnit.SECONDS)
+
+    @MethodDetail(looType = MethodDetail.LoopType.BACKGROUND,timeout = 30,timeoutUnit = TimeUnit.SECONDS)
     List<IntraUserInformation> getCacheSuggestionsToContact(int max,int offset) throws com.bitdubai.fermat_ccp_api.layer.module.intra_user.exceptions.CantGetIntraUsersListException;
 
 
@@ -155,6 +157,7 @@ public interface IntraUserModuleManager extends ModuleManager<IntraUserWalletSet
      * @return the list of intra users waiting to be accepted or rejected by the  logged in intra user
      * @throws com.bitdubai.fermat_ccp_api.layer.module.intra_user.exceptions.CantGetIntraUsersListException
      */
+    @MethodDetail(looType = MethodDetail.LoopType.BACKGROUND,timeout = 30,timeoutUnit = TimeUnit.SECONDS)
      List<IntraUserInformation> getIntraUsersWaitingYourAcceptance(String identityPublicKey,int max,int offset) throws com.bitdubai.fermat_ccp_api.layer.module.intra_user.exceptions.CantGetIntraUsersListException;
 
     /**
@@ -189,7 +192,7 @@ public interface IntraUserModuleManager extends ModuleManager<IntraUserWalletSet
      * @param profileImage
      * @throws CantUpdateIdentityException
      */
-    void  updateIntraUserIdentity(String identityPublicKey, String identityAlias, String identityPhrase,byte[] profileImage) throws CantUpdateIdentityException;
+    void  updateIntraUserIdentity(String identityPublicKey, String identityAlias, String identityPhrase,byte[] profileImage, Long accuracy, Frecuency frecuency) throws CantUpdateIdentityException;
 
 
     /**

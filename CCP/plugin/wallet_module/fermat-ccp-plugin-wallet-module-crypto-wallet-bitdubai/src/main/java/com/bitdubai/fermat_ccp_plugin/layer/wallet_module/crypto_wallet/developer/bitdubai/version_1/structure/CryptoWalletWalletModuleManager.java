@@ -27,9 +27,10 @@ import com.bitdubai.fermat_bch_api.layer.crypto_module.crypto_address_book.inter
 import com.bitdubai.fermat_bch_api.layer.crypto_network.bitcoin.BlockchainDownloadProgress;
 import com.bitdubai.fermat_bch_api.layer.crypto_network.bitcoin.exceptions.CantGetBlockchainDownloadProgress;
 import com.bitdubai.fermat_bch_api.layer.crypto_network.bitcoin.interfaces.BitcoinNetworkManager;
-import com.bitdubai.fermat_bch_api.layer.crypto_vault.bitcoin_vault.CryptoVaultManager;
+import com.bitdubai.fermat_bch_api.layer.crypto_vault.currency_vault.CryptoVaultManager;
 import com.bitdubai.fermat_bch_api.layer.crypto_vault.classes.vault_seed.exceptions.CantLoadExistingVaultSeed;
 import com.bitdubai.fermat_bch_api.layer.definition.event_manager.enums.EventType;
+import com.bitdubai.fermat_ccp_api.all_definition.enums.Frecuency;
 import com.bitdubai.fermat_ccp_api.layer.actor.Actor;
 import com.bitdubai.fermat_ccp_api.layer.actor.extra_user.exceptions.CantCreateExtraUserException;
 import com.bitdubai.fermat_ccp_api.layer.actor.extra_user.exceptions.CantGetExtraUserException;
@@ -125,7 +126,7 @@ import com.bitdubai.fermat_ccp_plugin.layer.wallet_module.crypto_wallet.develope
 import com.bitdubai.fermat_ccp_plugin.layer.wallet_module.crypto_wallet.developer.bitdubai.version_1.exceptions.CantGetActorException;
 import com.bitdubai.fermat_ccp_plugin.layer.wallet_module.crypto_wallet.developer.bitdubai.version_1.exceptions.CantInitializeCryptoWalletManagerException;
 import com.bitdubai.fermat_ccp_plugin.layer.wallet_module.crypto_wallet.developer.bitdubai.version_1.exceptions.CantRequestOrRegisterCryptoAddressException;
-import com.bitdubai.fermat_pip_api.layer.platform_service.event_manager.interfaces.EventManager;
+import com.bitdubai.fermat_api.layer.all_definition.common.system.interfaces.EventManager;
 import com.bitdubai.fermat_wpd_api.layer.wpd_middleware.wallet_manager.exceptions.CantListWalletsException;
 import com.bitdubai.fermat_wpd_api.layer.wpd_middleware.wallet_manager.interfaces.InstalledWallet;
 import com.bitdubai.fermat_wpd_api.layer.wpd_middleware.wallet_manager.interfaces.WalletManagerManager;
@@ -168,8 +169,8 @@ public class CryptoWalletWalletModuleManager extends ModuleManagerImpl<BitcoinWa
     private final OutgoingExtraUserManager       outgoingExtraUserManager      ;
     private final OutgoingIntraActorManager      outgoingIntraActorManager     ;
     private final WalletContactsManager          walletContactsManager         ;
-    private final UUID pluginId;
-    private final PluginFileSystem pluginFileSystem;
+//    private final UUID pluginId;
+//    private final PluginFileSystem pluginFileSystem;
     private final EventManager eventManager;
     private final BitcoinNetworkManager bitcoinNetworkManager                   ;
     private final Broadcaster                   broadcaster                     ;
@@ -208,14 +209,20 @@ public class CryptoWalletWalletModuleManager extends ModuleManagerImpl<BitcoinWa
         this.outgoingExtraUserManager       = outgoingExtraUserManager      ;
         this.outgoingIntraActorManager      = outgoingIntraActorManager     ;
         this.walletContactsManager          = walletContactsManager         ;
-        this.pluginId = pluginId;
-        this.pluginFileSystem = pluginFileSystem;
+//        this.pluginId = pluginId;
+//        this.pluginFileSystem = pluginFileSystem;
         this.eventManager = eventManager;
 
         this.bitcoinNetworkManager = bitcoinNetworkManager;
         this.broadcaster = broadcaster;
         this.walletManagerManager = walletManagerManager;
         this.transferIntraWalletUsersManager = transferIntraWalletUsersManager;
+
+        try {
+            initialize();
+        } catch (CantInitializeCryptoWalletManagerException e) {
+            e.printStackTrace();
+        }
     }
 
     private CryptoPaymentRegistry  cryptoPaymentRegistry ;
@@ -1301,9 +1308,9 @@ public class CryptoWalletWalletModuleManager extends ModuleManagerImpl<BitcoinWa
     }
 
     @Override
-    public boolean isValidAddress(CryptoAddress cryptoAddress) {
+    public boolean isValidAddress(CryptoAddress cryptoAddress, BlockchainNetworkType blockchainNetworkType) {
         //todo natalia corregir
-        return cryptoVaultManager.isValidAddress(cryptoAddress, BlockchainNetworkType.getDefaultBlockchainNetworkType());
+        return cryptoVaultManager.isValidAddress(cryptoAddress, blockchainNetworkType);
     }
 
     @Override
@@ -1524,7 +1531,7 @@ public class CryptoWalletWalletModuleManager extends ModuleManagerImpl<BitcoinWa
 
     @Override
     public void createIntraUser(String name, String phrase, byte[] image) throws CantCreateNewIntraWalletUserException {
-        intraWalletUserIdentityManager.createNewIntraWalletUser(name, phrase, image);
+        intraWalletUserIdentityManager.createNewIntraWalletUser(name, phrase, image,Long.parseLong("0"), Frecuency.NORMAL);
     }
 
 

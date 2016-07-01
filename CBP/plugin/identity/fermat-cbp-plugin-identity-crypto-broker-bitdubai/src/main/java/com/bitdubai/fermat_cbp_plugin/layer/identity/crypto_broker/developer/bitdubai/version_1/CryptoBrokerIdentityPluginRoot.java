@@ -24,6 +24,10 @@ import com.bitdubai.fermat_api.layer.osa_android.broadcaster.Broadcaster;
 import com.bitdubai.fermat_api.layer.osa_android.broadcaster.BroadcasterType;
 import com.bitdubai.fermat_api.layer.osa_android.database_system.PluginDatabaseSystem;
 import com.bitdubai.fermat_api.layer.osa_android.file_system.PluginFileSystem;
+import com.bitdubai.fermat_api.layer.osa_android.location_system.Location;
+import com.bitdubai.fermat_api.layer.osa_android.location_system.LocationManager;
+import com.bitdubai.fermat_api.layer.osa_android.location_system.exceptions.CantGetDeviceLocationException;
+import com.bitdubai.fermat_cbp_api.all_definition.enums.Frequency;
 import com.bitdubai.fermat_cbp_api.all_definition.exceptions.CantCreateNewDeveloperException;
 import com.bitdubai.fermat_cbp_api.layer.actor_network_service.crypto_broker.exceptions.CantExposeIdentitiesException;
 import com.bitdubai.fermat_cbp_api.layer.actor_network_service.crypto_broker.exceptions.CantExposeIdentityException;
@@ -73,6 +77,9 @@ public class CryptoBrokerIdentityPluginRoot extends AbstractPlugin implements Cr
     @NeededAddonReference (platform = Platforms.OPERATIVE_SYSTEM_API    , layer = Layers.SYSTEM               , addon  = Addons .PLUGIN_FILE_SYSTEM    )
     private PluginFileSystem pluginFileSystem;
 
+    @NeededAddonReference(platform = Platforms.OPERATIVE_SYSTEM_API, layer = Layers.SYSTEM, addon = Addons.DEVICE_LOCATION)
+    private LocationManager locationManager;
+
     @NeededPluginReference(platform = Platforms.CRYPTO_BROKER_PLATFORM  , layer = Layers.ACTOR_NETWORK_SERVICE, plugin = Plugins.CRYPTO_BROKER         )
     private CryptoBrokerManager cryptoBrokerANSManager;
 
@@ -107,11 +114,13 @@ public class CryptoBrokerIdentityPluginRoot extends AbstractPlugin implements Cr
         }
     }
 
-    public final CryptoBrokerIdentity createCryptoBrokerIdentity(String alias, byte[] image) throws CantCreateCryptoBrokerIdentityException, CryptoBrokerIdentityAlreadyExistsException {
+    public final CryptoBrokerIdentity createCryptoBrokerIdentity(String alias, byte[] image, long accuracy, Frequency frecuency)
+            throws CantCreateCryptoBrokerIdentityException, CryptoBrokerIdentityAlreadyExistsException {
+
         try {
             DeviceUser loggedUser = deviceUserManager.getLoggedInDeviceUser();
             KeyPair keyPair = new ECCKeyPair();
-            CryptoBrokerIdentity cryptoBroker = new CryptoBrokerIdentityImpl(alias, keyPair, image, ExposureLevel.HIDE);
+            CryptoBrokerIdentity cryptoBroker = new CryptoBrokerIdentityImpl(alias, keyPair, image, ExposureLevel.HIDE, accuracy, frecuency);
             cryptoBrokerIdentityDatabaseDao.createNewCryptoBrokerIdentity(cryptoBroker, keyPair.getPrivateKey(), loggedUser);
 
             broadcaster.publish(BroadcasterType.UPDATE_VIEW, "cambios_en_el_identity_broker_creado");
@@ -134,13 +143,15 @@ public class CryptoBrokerIdentityPluginRoot extends AbstractPlugin implements Cr
     }
 
     @Override
-    public void updateCryptoBrokerIdentity(String alias, String publicKey, byte[] imageProfile) throws CantUpdateBrokerIdentityException {
-        this.cryptoBrokerIdentityDatabaseDao.updateCryptoBrokerIdentity(alias, publicKey, imageProfile);
+    public void updateCryptoBrokerIdentity(String alias, String publicKey, byte[] imageProfile, long accuracy, Frequency frequency) throws CantUpdateBrokerIdentityException {
+        this.cryptoBrokerIdentityDatabaseDao.updateCryptoBrokerIdentity(alias, publicKey, imageProfile, accuracy, frequency);
 
         try {
             CryptoBrokerIdentity broker = cryptoBrokerIdentityDatabaseDao.getIdentity(publicKey);
+            Location location = locationManager.getLocation();
+            long refreshInterval = broker.getFrequency().getRefreshInterval();
             if( broker.isPublished() ){
-                cryptoBrokerANSManager.updateIdentity(new CryptoBrokerExposingData(publicKey, alias, imageProfile));
+                cryptoBrokerANSManager.updateIdentity(new CryptoBrokerExposingData(publicKey, alias, imageProfile, location, refreshInterval, accuracy));
                 broadcaster.publish(BroadcasterType.UPDATE_VIEW, "cambios_en_el_identity_broker_editado");
             }
         } catch (CantGetIdentityException e) {
@@ -155,6 +166,8 @@ public class CryptoBrokerIdentityPluginRoot extends AbstractPlugin implements Cr
 
             reportError(UnexpectedPluginExceptionSeverity.DISABLES_SOME_FUNCTIONALITY_WITHIN_THIS_PLUGIN, e);
             throw new CantUpdateBrokerIdentityException("CAN'T EXPOSE CRYPTO BROKER IDENTITY", FermatException.wrapException(e), "", "");
+        } catch (CantGetDeviceLocationException e) {
+            throw new CantUpdateBrokerIdentityException(e, "", "Problem exposing identities in Location.");
         }
     }
 
@@ -233,14 +246,21 @@ public class CryptoBrokerIdentityPluginRoot extends AbstractPlugin implements Cr
 
     private void exposeIdentities() throws CantExposeActorIdentitiesException {
         try {
+            Location location = locationManager.getLocation();
+            long refreshInterval = 0;
+
             final List<CryptoBrokerExposingData> cryptoBrokerExposingDataList = new ArrayList<>();
             for (final CryptoBrokerIdentity identity : listIdentitiesFromCurrentDeviceUser()) {
+                refreshInterval = identity.getFrequency().getRefreshInterval();
                 if (identity.isPublished()) {
                     cryptoBrokerExposingDataList.add(
                         new CryptoBrokerExposingData(
                             identity.getPublicKey()   ,
                             identity.getAlias()       ,
-                            identity.getProfileImage()
+                            identity.getProfileImage(),
+                            location,
+                            refreshInterval,
+                            identity.getAccuracy()
                         )
                     );
                 }
@@ -252,15 +272,22 @@ public class CryptoBrokerIdentityPluginRoot extends AbstractPlugin implements Cr
         } catch (final CantExposeIdentitiesException e) {
             reportError(UnexpectedPluginExceptionSeverity.DISABLES_SOME_FUNCTIONALITY_WITHIN_THIS_PLUGIN, e);
             throw new CantExposeActorIdentitiesException(e, "", "Problem exposing identities.");
+        } catch (CantGetDeviceLocationException e) {
+            throw new CantExposeActorIdentitiesException(e, "", "Problem exposing identities in Location.");
         }
     }
 
     private void exposeIdentity(final CryptoBrokerIdentity identity) throws CantExposeActorIdentityException {
         try {
-            cryptoBrokerANSManager.exposeIdentity(new CryptoBrokerExposingData(identity.getPublicKey(), identity.getAlias(), identity.getProfileImage()));
+            Location location = locationManager.getLocation();
+            long refreshInterval = 0;
+            refreshInterval = identity.getFrequency().getRefreshInterval();
+            cryptoBrokerANSManager.exposeIdentity(new CryptoBrokerExposingData(identity.getPublicKey(), identity.getAlias(), identity.getProfileImage(), location, refreshInterval, identity.getAccuracy()));
         } catch (final CantExposeIdentityException e) {
             reportError(UnexpectedPluginExceptionSeverity.DISABLES_SOME_FUNCTIONALITY_WITHIN_THIS_PLUGIN, e);
             throw new CantExposeActorIdentityException(e, "", "Problem exposing identity.");
+        } catch (CantGetDeviceLocationException e) {
+            throw new CantExposeActorIdentityException(e, "", "Problem exposing identities in Location.");
         }
     }
 

@@ -1,6 +1,7 @@
 package com.bitdubai.fermat_cbp_api.layer.actor_network_service.crypto_broker.utils;
 
 import com.bitdubai.fermat_api.layer.all_definition.enums.Actors;
+import com.bitdubai.fermat_api.layer.osa_android.location_system.Location;
 
 import java.util.Arrays;
 
@@ -15,14 +16,23 @@ public final class CryptoBrokerExposingData {
     private final String publicKey;
     private final String alias    ;
     private final byte[] image    ;
+    private final Location location;
+    private final long refreshInterval;
+    private final long accuracy;
 
     public CryptoBrokerExposingData(final String publicKey,
                                     final String alias    ,
-                                    final byte[] image    ) {
+                                    final byte[] image    ,
+                                    final Location location,
+                                    final long refreshInterval,
+                                    final long accuracy) {
 
         this.publicKey = publicKey;
         this.alias     = alias    ;
         this.image     = image    ;
+        this.location  = location;
+        this.refreshInterval = refreshInterval;
+        this.accuracy = accuracy;
     }
 
     /**
@@ -44,6 +54,27 @@ public final class CryptoBrokerExposingData {
      */
     public final byte[] getImage() {
         return image;
+    }
+
+    /**
+     * @return an locarion  with the image exposed by the Crypto Broker.
+     */
+    public final Location getLocation() {
+        return location;
+    }
+
+    /**
+     * @return an long with interval refresh by the Crypto Broker.
+     */
+    public final long getRefreshInterval() {
+        return refreshInterval;
+    }
+
+    /**
+     * @return an long with accuracy refresh by the Crypto Broker.
+     */
+    public final long getAccuracy() {
+        return accuracy;
     }
 
     @Override

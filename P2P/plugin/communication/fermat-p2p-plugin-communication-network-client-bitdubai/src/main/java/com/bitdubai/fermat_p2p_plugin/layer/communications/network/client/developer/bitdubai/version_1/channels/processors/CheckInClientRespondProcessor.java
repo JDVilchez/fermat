@@ -11,12 +11,11 @@ import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.pr
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.enums.P2pEventType;
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.enums.PackageType;
 import com.bitdubai.fermat_p2p_api.layer.p2p_communication.CommunicationChannels;
-import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.channels.endpoints.CommunicationsNetworkClientChannel;
+import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.channels.endpoints.NetworkClientCommunicationChannel;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.context.ClientContext;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.context.ClientContextItem;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.database.daos.NodeConnectionHistoryDao;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.entities.NodeConnectionHistory;
-import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.exceptions.CantInsertRecordDataBaseException;
 
 import java.sql.Timestamp;
 
@@ -24,7 +23,7 @@ import javax.websocket.Session;
 
 /**
  * The Class <code>CheckInClientRespondProcessor</code>
- * process all packages received the type <code>PackageType.CHECK_IN_CLIENT_RESPOND</code><p/>
+ * process all packages received the type <code>PackageType.CHECK_IN_CLIENT_RESPONSE</code><p/>
  *
  * Created by Leon Acosta - (laion.cj91@gmail.com) on 07/04/2016.
  *
@@ -42,12 +41,12 @@ public class CheckInClientRespondProcessor extends PackageProcessor {
     /**
      * Constructor whit parameter
      *
-     * @param communicationsNetworkClientChannel register
+     * @param networkClientCommunicationChannel register
      */
-    public CheckInClientRespondProcessor(final CommunicationsNetworkClientChannel communicationsNetworkClientChannel) {
+    public CheckInClientRespondProcessor(final NetworkClientCommunicationChannel networkClientCommunicationChannel) {
         super(
-                communicationsNetworkClientChannel,
-                PackageType.CHECK_IN_CLIENT_RESPOND
+                networkClientCommunicationChannel,
+                PackageType.CHECK_IN_CLIENT_RESPONSE
         );
         nodeConnectionHistoryDao = new NodeConnectionHistoryDao((Database) ClientContext.get(ClientContextItem.DATABASE));
     }

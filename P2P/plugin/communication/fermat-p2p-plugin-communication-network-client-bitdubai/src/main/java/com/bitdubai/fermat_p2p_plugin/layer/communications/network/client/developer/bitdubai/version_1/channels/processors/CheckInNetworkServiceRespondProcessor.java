@@ -7,13 +7,13 @@ import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.da
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.data.client.respond.CheckInProfileMsjRespond;
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.enums.P2pEventType;
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.enums.PackageType;
-import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.channels.endpoints.CommunicationsNetworkClientChannel;
+import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.channels.endpoints.NetworkClientCommunicationChannel;
 
 import javax.websocket.Session;
 
 /**
  * The Class <code>CheckInNetworkServiceRespondProcessor</code>
- * process all packages received the type <code>PackageType.CHECK_IN_NETWORK_SERVICE_RESPOND</code><p/>
+ * process all packages received the type <code>PackageType.CHECK_IN_NETWORK_SERVICE_RESPONSE</code><p/>
  *
  * Created by Leon Acosta - (laion.cj91@gmail.com) on 20/04/2016.
  *
@@ -26,12 +26,12 @@ public class CheckInNetworkServiceRespondProcessor extends PackageProcessor {
     /**
      * Constructor whit parameter
      *
-     * @param communicationsNetworkClientChannel register
+     * @param networkClientCommunicationChannel register
      */
-    public CheckInNetworkServiceRespondProcessor(final CommunicationsNetworkClientChannel communicationsNetworkClientChannel) {
+    public CheckInNetworkServiceRespondProcessor(final NetworkClientCommunicationChannel networkClientCommunicationChannel) {
         super(
-                communicationsNetworkClientChannel,
-                PackageType.CHECK_IN_NETWORK_SERVICE_RESPOND
+                networkClientCommunicationChannel,
+                PackageType.CHECK_IN_NETWORK_SERVICE_RESPONSE
         );
     }
 

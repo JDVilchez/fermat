@@ -27,13 +27,10 @@ import com.bitdubai.fermat_api.layer.osa_android.file_system.exceptions.CantCrea
 import com.bitdubai.fermat_api.layer.osa_android.file_system.exceptions.FileNotFoundException;
 import com.bitdubai.fermat_api.layer.osa_android.location_system.Location;
 import com.bitdubai.fermat_api.layer.osa_android.location_system.LocationManager;
-import com.bitdubai.fermat_api.layer.osa_android.location_system.LocationSource;
 import com.bitdubai.fermat_api.layer.osa_android.location_system.exceptions.CantGetDeviceLocationException;
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.clients.interfaces.NetworkClientConnection;
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.clients.interfaces.NetworkClientManager;
-import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.profiles.ActorProfile;
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.profiles.NodeProfile;
-import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.util.DistanceCalculator;
 import com.bitdubai.fermat_p2p_api.layer.all_definition.communication.commons.util.GsonProvider;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.context.ClientContext;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.context.ClientContextItem;
@@ -47,8 +44,7 @@ import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.develo
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.structure.NetworkClientCommunicationSupervisorConnectionAgent;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.structure.NetworkClientConnectionsManager;
 import com.bitdubai.fermat_p2p_plugin.layer.communications.network.client.developer.bitdubai.version_1.util.HardcodeConstants;
-import com.bitdubai.fermat_pip_api.layer.platform_service.event_manager.interfaces.EventManager;
-import com.google.gson.Gson;
+import com.bitdubai.fermat_api.layer.all_definition.common.system.interfaces.EventManager;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.reflect.TypeToken;
@@ -58,12 +54,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -531,98 +523,31 @@ public class NetworkClientCommunicationPluginRoot extends AbstractPlugin impleme
 
         System.out.println("CALLING getNodesProfileFromConnectionHistory");
 
-        if(locationManager.getLocation() == null)
-            return null;
-
-        NodeConnectionHistoryDao nodeConnectionHistoryDao = new NodeConnectionHistoryDao(dataBase);
-        List<NodeConnectionHistory> nodeConnectionHistoryList;
-        List<NodeConnectionHistory> nodeConnectionHistoryListFiltered;
-        List<NodeProfile> nodeProfiles = null;
+        Location location;
 
         try {
-            nodeConnectionHistoryList = nodeConnectionHistoryDao.findAll();
-            nodeConnectionHistoryListFiltered = applyGeoLocationFilter(locationManager.getLocation(), nodeConnectionHistoryList);
-        } catch (CantReadRecordDataBaseException e) {
-            e.printStackTrace();
+
+            location = (locationManager != null && locationManager.getLastKnownLocation()  != null)  ?  locationManager.getLastKnownLocation()  : null ;
+
+            if (location == null)
+                return null;
+
+        } catch (Exception exception) {
+            //exception.printStackTrace();
             return null;
         }
 
-        if(nodeConnectionHistoryListFiltered != null){
+        NodeConnectionHistoryDao nodeConnectionHistoryDao = new NodeConnectionHistoryDao(dataBase);
+        List<NodeProfile> nodeProfiles;
 
-            nodeProfiles = new ArrayList<>();
-
-            for(NodeConnectionHistory nodeHistory : nodeConnectionHistoryListFiltered){
-
-                NodeProfile node = new NodeProfile();
-                node.setIdentityPublicKey(nodeHistory.getIdentityPublicKey());
-                node.setIp(nodeHistory.getIp());
-                node.setDefaultPort(nodeHistory.getDefaultPort());
-
-                final Double latitude = nodeHistory.getLatitude();
-                final Double longitude = nodeHistory.getLongitude();
-
-                Location nodeLocation = new DeviceLocation();
-                nodeLocation.setLongitude(longitude);
-                nodeLocation.setLatitude(latitude);
-
-                node.setLocation(nodeLocation);
-
-                nodeProfiles.add(node);
-
-            }
+        try {
+            nodeProfiles = nodeConnectionHistoryDao.findAllNodeProfilesNearestTo(10, 0, location);
+        } catch (CantReadRecordDataBaseException e) {
+           // e.printStackTrace();
+            return null;
         }
 
         return nodeProfiles;
-    }
-
-    /**
-     *  Method that apply geo location filter to the list
-     *
-     * @param clientLocation
-     * @param nodeConnectionHistoryList
-     * @return List<NodeConnectionHistory>
-     */
-    private List<NodeConnectionHistory> applyGeoLocationFilter(Location clientLocation, List<NodeConnectionHistory> nodeConnectionHistoryList) {
-
-        if(nodeConnectionHistoryList != null)
-            return null;
-
-        /*
-         * Hold the data ordered by distance
-         */
-        Map<Double, NodeConnectionHistory> orderedByDistance = new TreeMap<>();
-
-        for(NodeConnectionHistory nodeHistory : nodeConnectionHistoryList){
-
-            /*
-             * If component has a geo location
-             */
-            if (nodeHistory.getLatitude() != 0.0 &&
-                    nodeHistory.getLongitude() != 0.0){
-
-                final Double latitude = nodeHistory.getLatitude();
-                final Double longitude = nodeHistory.getLongitude();
-
-                Location nodeLocation = new DeviceLocation();
-                nodeLocation.setLongitude(longitude);
-                nodeLocation.setLatitude(latitude);
-
-                /*
-                 * Calculate the distance between the two points
-                 */
-                Double componentDistance = DistanceCalculator.distance(clientLocation, nodeLocation, DistanceCalculator.KILOMETERS);
-
-                /*
-                 * Add to the list
-                 */
-                orderedByDistance.put(componentDistance, nodeHistory);
-
-            }
-
-        }
-
-        return new ArrayList<>(orderedByDistance.values());
-
     }
 
     /*

@@ -12,11 +12,9 @@ import android.widget.ImageView;
 import android.widget.TextView;
 
 import com.bitbudai.fermat_cht_android_sub_app_chat_bitdubai.filters.ContactListFilter;
-//import com.bitbudai.fermat_cht_android_sub_app_chat_bitdubai.models.ChatsList;
-import com.bitbudai.fermat_cht_android_sub_app_chat_bitdubai.filters.ContactListFilter;
-import com.bitbudai.fermat_cht_android_sub_app_chat_bitdubai.models.ContactList;
 import com.bitbudai.fermat_cht_android_sub_app_chat_bitdubai.fragments.ContactsListFragment;
-import com.bitbudai.fermat_cht_android_sub_app_chat_bitdubai.sessions.ChatSession;
+import com.bitbudai.fermat_cht_android_sub_app_chat_bitdubai.sessions.ChatSessionReferenceApp;
+import com.bitbudai.fermat_cht_android_sub_app_chat_bitdubai.util.ProfileDialog;
 import com.bitbudai.fermat_cht_android_sub_app_chat_bitdubai.util.Utils;
 import com.bitdubai.fermat_android_api.layer.definition.wallet.interfaces.FermatSession;
 import com.bitdubai.fermat_api.layer.all_definition.common.system.interfaces.ErrorManager;
@@ -30,7 +28,8 @@ import com.bitdubai.fermat_cht_api.layer.sup_app_module.interfaces.ChatModuleMan
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
-import java.util.List;
+
+//import com.bitbudai.fermat_cht_android_sub_app_chat_bitdubai.models.ChatsList;
 
 /**
  * Contact List Adapter
@@ -50,7 +49,7 @@ public class ContactListAdapter extends ArrayAdapter implements Filterable {//pu
     private FermatSession appSession;
     private ErrorManager errorManager;
     private ChatModuleManager moduleManager;
-    private ChatSession chatSession;
+    private ChatSessionReferenceApp chatSession;
     private ContactsListFragment contactsListFragment;
     private Context context;
     private Context mContext;
@@ -63,7 +62,7 @@ public class ContactListAdapter extends ArrayAdapter implements Filterable {//pu
 
     public ContactListAdapter(Context context, ArrayList contactInfo, ArrayList contactIcon, ArrayList contactId, ArrayList contactStatus,
                               ChatManager chatManager, ChatModuleManager moduleManager,
-                              ErrorManager errorManager, ChatSession chatSession, FermatSession appSession, AdapterCallback mAdapterCallback) {
+                              ErrorManager errorManager, ChatSessionReferenceApp chatSession, FermatSession appSession, AdapterCallback mAdapterCallback) {
         super(context, R.layout.contact_list_item, contactInfo);
         this.contactInfo = contactInfo;
         this.contactIcon = contactIcon;
@@ -88,7 +87,10 @@ public class ContactListAdapter extends ArrayAdapter implements Filterable {//pu
         View item = inflater.inflate(R.layout.contact_list_item, null, true);
         try {
             imagen = (ImageView) item.findViewById(R.id.icon);//imagen.setImageResource(contacticon.get(position));//contacticon[position]);
-            imagen.setImageBitmap(Utils.getRoundedShape(contactIcon.get(position), 400));//imagen.setImageBitmap(getRoundedShape(decodeFile(getContext(), contacticon.get(position)), 300));
+            if(contactIcon.get(position)!=null)
+                imagen.setImageBitmap(Utils.getRoundedShape(contactIcon.get(position), 400));//imagen.setImageBitmap(getRoundedShape(decodeFile(getContext(), contacticon.get(position)), 300));
+            else
+                imagen.setImageResource(R.drawable.cht_center_profile_icon_center);//imagen.setImageBitmap(getRoundedShape(decodeFile(getContext(), contacticon.get(position)), 300));
 
             contactName = (TextView) item.findViewById(R.id.text1);
             contactName.setText(contactInfo.get(position));
@@ -100,20 +102,26 @@ public class ContactListAdapter extends ArrayAdapter implements Filterable {//pu
                 @Override
                 public void onClick(View v) {
                     try {
-                        Contact contact=new ContactImpl();
-                        contact.setRemoteActorPublicKey(contactId.get(pos));
-                        contact.setAlias(contactInfo.get(pos));
-                        ByteArrayOutputStream stream = new ByteArrayOutputStream();
-                        contactIcon.get(pos).compress(Bitmap.CompressFormat.PNG, 100, stream);
-                        byte[] byteArray = stream.toByteArray();
-                        contact.setProfileImage(byteArray);
-                        appSession.setData(ChatSession.CONTACT_DATA, null);//chatManager.getContactByContactId(contactid.get(pos)));
-                        appSession.setData(ChatSession.CONTACT_DATA, contact);
-                        //TODO:metodo nuevo que lo buscara del module del actor connections//chatManager.getChatUserIdentities();
-                        //appSession.setData(ChatSession.CONTACT_DATA, contactid.get(pos));
-                        mAdapterCallback.onMethodCallback();//solution to access to changeactivity. j
-                        //} catch (CantGetContactException e) {
-                        //    errorManager.reportUnexpectedSubAppException(SubApps.CHT_CHAT, UnexpectedSubAppExceptionSeverity.DISABLES_SOME_FUNCTIONALITY_WITHIN_THIS_FRAGMENT, e);
+
+                        ProfileDialog profile = new ProfileDialog (getContext(), appSession, null);
+                        profile.setProfileName(contactInfo.get(pos));
+                        profile.setProfilePhoto(contactIcon.get(pos));
+                        profile.show();
+
+//                        Contact contact=new ContactImpl();
+//                        contact.setRemoteActorPublicKey(contactId.get(pos));
+//                        contact.setAlias(contactInfo.get(pos));
+//                        ByteArrayOutputStream stream = new ByteArrayOutputStream();
+//                        contactIcon.get(pos).compress(Bitmap.CompressFormat.PNG, 100, stream);
+//                        byte[] byteArray = stream.toByteArray();
+//                        contact.setProfileImage(byteArray);
+//                        appSession.setData(ChatSessionReferenceApp.CONTACT_DATA, null);//chatManager.getContactByContactId(contactid.get(pos)));
+//                        appSession.setData(ChatSessionReferenceApp.CONTACT_DATA, contact);
+//                        //TODO:metodo nuevo que lo buscara del module del actor connections//chatManager.getChatUserIdentities();
+//                        //appSession.setData(ChatSessionReferenceApp.CONTACT_DATA, contactid.get(pos));
+//                        mAdapterCallback.onMethodCallback();//solution to access to changeactivity. j
+//                        //} catch (CantGetContactException e) {
+//                        //    errorManager.reportUnexpectedSubAppException(SubApps.CHT_CHAT, UnexpectedSubAppExceptionSeverity.DISABLES_SOME_FUNCTIONALITY_WITHIN_THIS_FRAGMENT, e);
                         } catch (Exception e) {
                             errorManager.reportUnexpectedSubAppException(SubApps.CHT_CHAT, UnexpectedSubAppExceptionSeverity.DISABLES_SOME_FUNCTIONALITY_WITHIN_THIS_FRAGMENT, e);
                         }

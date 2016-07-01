@@ -59,15 +59,16 @@ import com.bitdubai.fermat_api.layer.osa_android.file_system.exceptions.CantPers
 import com.bitdubai.fermat_api.layer.osa_android.file_system.exceptions.FileNotFoundException;
 import com.bitdubai.fermat_api.layer.osa_android.logger_system.LogLevel;
 import com.bitdubai.fermat_api.layer.osa_android.logger_system.LogManager;
-import com.bitdubai.fermat_bch_api.layer.crypto_vault.bitcoin_vault.CryptoVaultManager;
+import com.bitdubai.fermat_bch_api.layer.crypto_vault.currency_vault.CryptoVaultManager;
 import com.bitdubai.fermat_bch_api.layer.crypto_vault.classes.vault_seed.exceptions.CantLoadExistingVaultSeed;
+import com.bitdubai.fermat_ccp_api.all_definition.enums.Frecuency;
 import com.bitdubai.fermat_ccp_api.layer.basic_wallet.crypto_wallet.interfaces.CryptoWalletManager;
 import com.bitdubai.fermat_ccp_api.layer.basic_wallet.common.exceptions.CantCreateWalletException;
 import com.bitdubai.fermat_ccp_api.layer.basic_wallet.loss_protected_wallet.interfaces.BitcoinLossProtectedWalletManager;
 import com.bitdubai.fermat_ccp_api.layer.identity.intra_user.exceptions.CantCreateNewIntraWalletUserException;
 import com.bitdubai.fermat_ccp_api.layer.identity.intra_user.exceptions.CantListIntraWalletUsersException;
 import com.bitdubai.fermat_ccp_api.layer.identity.intra_user.interfaces.IntraWalletUserIdentityManager;
-import com.bitdubai.fermat_pip_api.layer.platform_service.event_manager.interfaces.EventManager;
+import com.bitdubai.fermat_api.layer.all_definition.common.system.interfaces.EventManager;
 import com.bitdubai.fermat_wpd_api.layer.wpd_desktop_module.wallet_manager.exceptions.CantPersistWalletException;
 import com.bitdubai.fermat_wpd_api.layer.wpd_desktop_module.wallet_manager.exceptions.NewWalletCreationFailedException;
 import com.bitdubai.fermat_wpd_api.layer.wpd_desktop_module.wallet_manager.exceptions.WalletRemovalFailedException;
@@ -145,6 +146,7 @@ public class WalletManagerModulePluginRoot extends AbstractModule<DesktopManager
     String deviceUserPublicKey = "walletDevice";
     String walletPublicKey = "reference_wallet";
     String lossProtectedwalletPublicKey = "loss_protected_wallet";
+    String fermatWalletPublicKey = "fermat_wallet";
 
     List<InstalledWallet> userWallets;
 
@@ -175,6 +177,7 @@ public class WalletManagerModulePluginRoot extends AbstractModule<DesktopManager
         //TODO: Verificar si este bloque de codigo es necesario que quede aca
         boolean existWallet = false;
         boolean existWalletLoss = false;
+        boolean existFermatWallet = false;
         try {
 
             //load user's wallets ids
@@ -188,6 +191,8 @@ public class WalletManagerModulePluginRoot extends AbstractModule<DesktopManager
                     existWallet = true;
                 if (mapEntry.getValue().toString().equals(lossProtectedwalletPublicKey))
                     existWalletLoss = true;
+                if (mapEntry.getValue().toString().equals(fermatWalletPublicKey))
+                    existFermatWallet = true;
             }
 
 
@@ -204,6 +209,30 @@ public class WalletManagerModulePluginRoot extends AbstractModule<DesktopManager
 
                     try {
                         this.persistWallet(walletPublicKey);
+                    } catch (CantPersistWalletException cantPersistWalletException) {
+                        throw new CantStartPluginException(cantPersistWalletException, Plugins.BITDUBAI_WPD_WALLET_MANAGER_DESKTOP_MODULE);
+
+                    }
+
+                } catch (CantCreateWalletException cantCreateWalletException) {
+                    throw new CantStartPluginException(cantCreateWalletException, Plugins.BITDUBAI_WPD_WALLET_MANAGER_DESKTOP_MODULE);
+
+                }
+            }
+
+            if (!existFermatWallet) {
+                //Create new Fermat Wallet
+
+                try {
+
+                    cryptoWalletManager.createWallet(fermatWalletPublicKey);
+                    walletIds.put(UUID.randomUUID().toString(), fermatWalletPublicKey);
+
+
+                    //Save wallet id on file
+
+                    try {
+                        this.persistWallet(fermatWalletPublicKey);
                     } catch (CantPersistWalletException cantPersistWalletException) {
                         throw new CantStartPluginException(cantPersistWalletException, Plugins.BITDUBAI_WPD_WALLET_MANAGER_DESKTOP_MODULE);
 
@@ -482,7 +511,7 @@ public class WalletManagerModulePluginRoot extends AbstractModule<DesktopManager
          * I will generate the file content.
          */
 
-        //fileContent+= deviceUserPublicKey + "," + walletId + ";";
+        fileContent+= deviceUserPublicKey + "," + walletId + ";";
 
         StringBuilder stringBuilder = new StringBuilder(walletIds.size() * 72);
 
@@ -490,7 +519,7 @@ public class WalletManagerModulePluginRoot extends AbstractModule<DesktopManager
         while (iterator.hasNext()) {
             Map.Entry pair = (Map.Entry) iterator.next();
             stringBuilder.append(pair.getKey().toString() + "," + pair.getValue().toString() + ";");
-            iterator.remove();
+            //iterator.remove();
         }
 
 
@@ -515,7 +544,7 @@ public class WalletManagerModulePluginRoot extends AbstractModule<DesktopManager
     public void createNewIntraWalletUser(String alias, String phrase, byte[] profileImage) throws WalletCreateNewIntraUserIdentityException {
         try
         {
-            intraWalletUserIdentityManager.createNewIntraWalletUser(alias,phrase,profileImage);
+            intraWalletUserIdentityManager.createNewIntraWalletUser(alias,phrase,profileImage,Long.parseLong("0"), Frecuency.NONE);
 
         }
         catch( CantCreateNewIntraWalletUserException e)
