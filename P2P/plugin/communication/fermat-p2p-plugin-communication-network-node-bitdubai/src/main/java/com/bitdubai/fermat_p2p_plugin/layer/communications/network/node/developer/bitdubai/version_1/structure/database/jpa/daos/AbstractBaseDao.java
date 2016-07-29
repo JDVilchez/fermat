@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
+
 import javax.persistence.EntityManager;
 import javax.persistence.EntityTransaction;
 import javax.persistence.Parameter;
@@ -139,12 +140,14 @@ public class AbstractBaseDao<E extends AbstractBaseEntity> {
     public List<E> executeNamedQuery(JPANamedQuery jpaNamedQuery, Map<String, Object> filters, boolean isUpdate) throws IllegalArgumentException{
         EntityManager connection = getConnection();
         List<E> result = new ArrayList<>();
+        EntityTransaction transaction = connection.getTransaction();
         try{
+
             Object aux = filters.get("max");
             final int max = (aux != null && aux instanceof Integer) ? (int)aux : 0;
             aux = filters.get("offset");
             final int offset = (aux != null && aux instanceof Integer) ? (int)aux : 0;
-            TypedQuery<E> query = getConnection().createNamedQuery(jpaNamedQuery.getCode(), entityClass);
+            TypedQuery<E> query = connection.createNamedQuery(jpaNamedQuery.getCode(), entityClass);
             if(max > 0)
                 query.setMaxResults(max);
             if(offset > 0)
@@ -155,15 +158,24 @@ public class AbstractBaseDao<E extends AbstractBaseEntity> {
                     query.setParameter(parameter.getName(),filter);
                 }
             }
-            if(isUpdate)
-                query.executeUpdate();
+
+            if(isUpdate){
+                transaction.begin();
+                int affect = query.executeUpdate();
+                //TODO only for information intention, delete if necessary
+                LOG.info("total rows affect by update:"+affect);
+                transaction.commit();
+            }
             else
                 result = query.getResultList();
+
         }catch (IllegalArgumentException e){
             LOG.error(e);
+            transaction.rollback();
             throw new IllegalArgumentException("Wrong named query to specified entity:"+entityClass.getName());
         }catch (Exception e){
             LOG.error(e);
+            transaction.rollback();
         }finally {
             connection.close();
         }
@@ -242,7 +254,7 @@ public class AbstractBaseDao<E extends AbstractBaseEntity> {
         try {
 
             transaction.begin();
-                connection.remove(connection.contains(entity) ? entity : connection.merge(entity));
+            connection.remove(connection.contains(entity) ? entity : connection.merge(entity));
             transaction.commit();
 
         } catch (Exception e){
