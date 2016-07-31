@@ -112,11 +112,10 @@ public class ClientSessionDao extends AbstractBaseDao<ClientSession>{
 
         try {
 
+            transaction.begin();
             ClientSession clientSession = findById(session.getId());
 
             if (clientSession != null){
-
-                transaction.begin();
 
                 Query queryActorSessionDelete = connection.createQuery("DELETE FROM ActorSession a WHERE a.actor.client.id = :clientId");
                 queryActorSessionDelete.setParameter("clientId", clientSession.getClient().getId());
