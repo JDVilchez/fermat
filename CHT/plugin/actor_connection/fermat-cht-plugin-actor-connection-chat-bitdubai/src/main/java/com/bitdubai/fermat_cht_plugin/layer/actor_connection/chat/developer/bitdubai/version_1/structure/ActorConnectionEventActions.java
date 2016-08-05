@@ -171,7 +171,7 @@ public class ActorConnectionEventActions {
             if (oldActorConnection != null)
                 connectionState = oldActorConnection.getConnectionState();
 //
-            if (connectionState != null && connectionState.equals(ConnectionState.CONNECTED))
+            if (connectionState != null && connectionState.getCode().equals(ConnectionState.CONNECTED.getCode()))
                 return;
 //            else
             connectionState = ConnectionState.PENDING_LOCALLY_ACCEPTANCE;
